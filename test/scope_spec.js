@@ -151,7 +151,7 @@ describe("Scope", function () {
             );
 
             expect((function() { scope.$digest(); })).toThrow();
-        });
+        })
 
         it("runs the digest loop only till the last dirty watch in previous iteration", function(){
             scope.array = _.range(100);
@@ -175,7 +175,7 @@ describe("Scope", function () {
             scope.array[0] = 420;
             scope.$digest();
             expect(watchExecutions).toBe(301);
-        });
+        })
 
         it("does not end digest so that new watches are not run", function() {
             scope.aValue = 'abc';
@@ -198,7 +198,7 @@ describe("Scope", function () {
 
             scope.$digest();
             expect(scope.counter).toBe(1);
-        });
+        })
 
         it("compares based on value if enabled", function() {
             scope.aValue = [1, 2, 3];
@@ -215,7 +215,7 @@ describe("Scope", function () {
             scope.aValue.push(4);
             scope.$digest();
             expect(scope.counter).toBe(2);
-        });
+        })
 
         it("correctly handles NaNs", function() {
             scope.number = 0/0; // NaN
@@ -230,6 +230,23 @@ describe("Scope", function () {
             expect(scope.counter).toBe(1);
             scope.$digest();
             expect(scope.counter).toBe(1);
-        });
+        })
+
+        it("executes function with scope as the first parameter", function() {
+            scope.aValue = 42;
+            var result = scope.$eval(function(scope) {
+                return scope.aValue;
+            });
+
+            expect(result).toBe(42);
+        })
+
+        it("executes funtion with arguments as second parameter", function() {
+            scope.aValue = 42;
+            var result = scope.$eval(function(scope, arg) {
+                return scope.aValue + arg;
+            }, 2);
+            expect(result).toBe(44);
+        })
     })
 })

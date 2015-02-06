@@ -24,6 +24,10 @@ Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
     }
 }
 
+Scope.prototype.$eval = function(expr, locals) {
+    return expr(this, locals);
+};
+
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
     var watch = {
         watchFn: watchFn,
