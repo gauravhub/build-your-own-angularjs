@@ -10,6 +10,15 @@ function Scope() {
     this.$$lastDirtyWatch = null;
 }
 
+Scope.prototype.$apply = function(expr) {
+    try {
+        return this.$eval(expr);
+    } 
+    finally {
+        this.$digest();
+    }
+}
+
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
     if (valueEq) {
         return _.isEqual(newValue, oldValue);
