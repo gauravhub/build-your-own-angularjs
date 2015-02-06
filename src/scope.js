@@ -47,7 +47,12 @@ Scope.prototype.$applyAsync = function(expr) {
 
 Scope.prototype.$$flushApplyAsync = function() {
     while (this.$$applyAsyncQueue.length) {
-        this.$$applyAsyncQueue.shift()();
+        try {
+            this.$$applyAsyncQueue.shift()();
+        } 
+        catch (e) {
+            console.error(e);
+        }
     }
     this.$$applyAsyncId = null;
 }
@@ -96,45 +101,62 @@ Scope.prototype.$eval = function(expr, locals) {
 };
 
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
+    var self = this;
     var watch = {
         watchFn: watchFn,
-        listenerFn: listenerFn || function() {},
-        last: initWatchVal,
-        valueEq: !!valueEq
-    }
+        listenerFn: listenerFn,
+        valueEq: !!valueEq,
+        last: initWatchVal
+    };
     
-    this.$$watches.push(watch);
+    this.$$watches.unshift(watch);
     this.$$lastDirtyWatch = null;
+    
+    return function() {
+        var index = self.$$watches.indexOf(watch);
+        if (index >= 0) {
+            self.$$watches.splice(index, 1);
+            self.$$lastDirtyWatch = null;
+        }
+    };
 }
 
 Scope.prototype.$$digestOnce = function() {
     var self = this;
-    
-    var oldValue, newValue, dirty;
-    
-    _.forEach(this.$$watches, function(watch) {
-            oldValue = watch.last;
-            newValue = watch.watchFn(self);
-                
-            if(!self.$$areEqual(newValue, oldValue, watch.valueEq)) {
-                self.$$lastDirtyWatch = watch;
-                watch.last = (watch.valueEq ? _.cloneDeep(newValue) : newValue);        
-                watch.listenerFn(newValue, (oldValue === initWatchVal) ? newValue : oldValue, self);
-                dirty = true;
+    var newValue, oldValue, dirty;
+    _.forEachRight(this.$$watches, function(watch) {
+        try {
+            if (watch) {
+                newValue = watch.watchFn(self);
+                oldValue = watch.last;
+                if (!self.$$areEqual(newValue, oldValue, watch.valueEq)) {
+                    self.$$lastDirtyWatch = watch;
+                    watch.last = (watch.valueEq ? _.cloneDeep(newValue) : newValue);
+                    watch.listenerFn(
+                        newValue,
+                        (oldValue === initWatchVal ? newValue : oldValue),
+                        self
+                    );
+                    dirty = true;
+                } 
+                else if (self.$$lastDirtyWatch === watch) {
+                    return false;
+                }
             }
-            else if(watch == self.$$lastDirtyWatch) {
-                return false;
-            }
-    })
-
+        } 
+        catch (e) {
+            console.error(e);
+        }
+    });
     return dirty;
-}
+};
 
 Scope.prototype.$digest = function() {
-    var dirty, ttl = 10;
+    var ttl = 10;
+    var dirty;
     this.$$lastDirtyWatch = null;
-    this.$beginPhase("$digest");
-
+    this.$beginPhase('$digest');
+    
     if (this.$$applyAsyncId) {
         clearTimeout(this.$$applyAsyncId);
         this.$$flushApplyAsync();
@@ -142,21 +164,32 @@ Scope.prototype.$digest = function() {
 
     do {
         while (this.$$evalAsyncQueue.length) {
-            var asyncTask = this.$$evalAsyncQueue.shift();
-            asyncTask.scope.$eval(asyncTask.expression);
+            try {
+                var asyncTask = this.$$evalAsyncQueue.shift();
+                asyncTask.scope.$eval(asyncTask.expression);
+            } 
+            catch (e) {
+                console.error(e);
+            }
         }
 
         dirty = this.$$digestOnce();
-        ttl = ttl - 1;
-        if((dirty || this.$$evalAsyncQueue.length) && !ttl) {
-            this.$clearPhase();
+        
+        if ((dirty || this.$$evalAsyncQueue.length) && !(ttl--)) {
             throw "10 digest iterations reached";
         }
-    }
-    while (dirty || this.$$evalAsyncQueue.length);
-    this.$clearPhase();
 
+    } 
+    while (dirty || this.$$evalAsyncQueue.length);
+    
+    this.$clearPhase();
+    
     while (this.$$postDigestQueue.length) {
-        this.$$postDigestQueue.shift()();
+        try {
+            this.$$postDigestQueue.shift()();
+        } 
+        catch (e) {
+            console.error(e);
+        }
     }
 }
