@@ -8,7 +8,12 @@ function initWatchVal() { }
 function Scope() {
     this.$$watches = [];
     this.$$lastDirtyWatch = null;
+    this.$$evalAsyncQueue = [];
 }
+
+Scope.prototype.$evalAsync = function(expr) {
+    this.$$evalAsyncQueue.push({scope: this, expression: expr});
+};
 
 Scope.prototype.$apply = function(expr) {
     try {
@@ -76,11 +81,16 @@ Scope.prototype.$digest = function() {
     var dirty, ttl = 10;
     this.$$lastDirtyWatch = null;
     do {
+        while (this.$$evalAsyncQueue.length) {
+            var asyncTask = this.$$evalAsyncQueue.shift();
+            asyncTask.scope.$eval(asyncTask.expression);
+        }
+
         dirty = this.$$digestOnce();
         ttl = ttl - 1;
-        if(dirty && !ttl) {
+        if((dirty || this.$$evalAsyncQueue.length) && !ttl) {
             throw "10 digest iterations reached";
         }
     }
-    while(dirty)
+    while (dirty || this.$$evalAsyncQueue.length);
 }
